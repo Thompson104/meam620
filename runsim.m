@@ -32,7 +32,6 @@ real_time = true;
 nquad = 1;
 
 % max time
-% time_tol = 30; TODO uncomment
 time_tol = 30;
 
 % parameters for simulation
