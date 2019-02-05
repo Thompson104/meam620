@@ -6,7 +6,7 @@ function [desired_state] = circle(t, qn)
 % NOTE: the simulator will spawn the robot to be at the
 %       position you return for t == 0
 
-t_f = 11.4; % Final time
+t_f = 12.7; % Final time
 
     function pos_des = get_pos_des(t_d, t_final)
         radius = 5;
