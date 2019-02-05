@@ -1,4 +1,4 @@
-function [F, M, trpy, drpy] = controller(qd, t, qn, params)
+function [F, M, trpy, drpy] = controller_geo(qd, t, qn, params)
 % CONTROLLER quadrotor controller
 % The current states are:
 %% Inputs:
