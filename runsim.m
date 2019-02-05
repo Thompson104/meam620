@@ -13,7 +13,7 @@ addpath('trajectories')
 % You need to implement trajhandle and controlhandle
 
 % trajectory generator
-trajhandle = @diamond;
+trajhandle = @circle;
 
 % controller
 controlhandle = @controller_pd;
