@@ -16,7 +16,7 @@ addpath('trajectories')
 trajhandle = @circle;
 
 % controller
-controlhandle = @controller;
+controlhandle = @controller_pd;
 
 % Initial condition, you may want to modify these when tuning
 state_0  = trajhandle(0, 1); % Extract starting position from t=0 of traj
@@ -32,6 +32,7 @@ real_time = true;
 nquad = 1;
 
 % max time
+% time_tol = 30; TODO uncomment
 time_tol = 30;
 
 % parameters for simulation
