@@ -37,17 +37,21 @@ function [F, M, trpy, drpy] = controller_geo(qd, t, qn, params)
 
 % Geometric Controller
 % Gains
-K_R = 1*diag([1,1,1]); % Rotational error gain
-K_omega = 0.1*diag([1,1,1]); % Angular gain
-K_d = 0*diag([1,1,1]);
-K_p = 0.1*diag([1,1,1]);
+
+K_R = 10000*diag([2,2,1]); % Rotational error gain
+K_omega = 800*diag([2,2,1]); % Angular gain
+
+wn_pos = 5*[1;1;2.3];
+zeta_pos = 0.8*[1;1;1;];
+K_p = diag(wn_pos.^2);
+K_d = diag(2.*zeta_pos.*wn_pos);
 
 % Calculate u_1
 % Note the inconsistency, the qn.acc_des is target accel, but we are being
 % consistent so acc_des is acc_des, and qn.acc_des is target acc
-acc_des = qd{qn}.acc_des - K_d*(qd{qn}.vel - qd{qn}.vel_des) ...
-          - K_p*(qd{qn}.pos - qd{qn}.pos_des);
-force_des = params.mass .* acc_des + [0 0 params.mass*params.grav]';
+
+acc_d = qd{qn}.acc_des - K_d*(qd{qn}.vel - qd{qn}.vel_des) - K_p*(qd{qn}.pos - qd{qn}.pos_des);
+force_des = params.mass .* acc_d + [0 0 params.mass*params.grav]';
 rot_A2B = eulzxy2rotmat(qd{qn}.euler); % R
 b3 = rot_A2B * [0; 0; 1;];
 u_1 = b3' * force_des;
@@ -56,9 +60,9 @@ u_1 = b3' * force_des;
 
 b3_des = force_des / max(norm(force_des), 1e-5);
 
-yaw = qd{qn}.euler(3);
+psi_d = qd{qn}.yaw_des;
 
-a_phi = [cos(yaw); sin(yaw); 0];
+a_phi = [cos(psi_d); sin(psi_d); 0];
 cross_b3des_aphi = cross(b3_des, a_phi);
 b2_des = cross_b3des_aphi / max(norm(cross_b3des_aphi), 1e-5);
 
@@ -66,7 +70,7 @@ rot_des = [cross(b2_des,b3_des), b2_des, b3_des]; % R_des
 
 error_R_mat = 0.5*(rot_des'*rot_A2B - rot_A2B' * rot_des);
 error_R = [error_R_mat(3,2); error_R_mat(1,3); error_R_mat(2,1);];
-omega_des = [0,0,0]'; %No error, since desired omega is simply 0.
+omega_des = [0,0,0]'; % No error, since desired omega is simply 0.
 error_omega = qd{qn}.omega - omega_des;
 
 u_2 = params.I*(-K_R*error_R - K_omega*error_omega);
