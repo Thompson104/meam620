@@ -8,18 +8,25 @@ function [desired_state] = circle(t, qn)
 
 t_f = 11.4; % Final time
 
-k = max(min(t/t_f,1),0); % length along path normalized
+    function pos_des = get_pos_des(t_d, t_final)
+        radius = 5;
+        z_max = 2.5;
+        k = max(min(t_d/t_final,1),0); % length along path normalized
+            
+        theta = 2*pi*k;
+        x = radius*cos(theta);
+        y = radius*sin(theta);
+        z = z_max*k;
 
-radius = 5;
-z_max = 2.5;
+        pos_des = [x; y; z];
+    end
 
-theta = 2*pi*k;
-x = radius*cos(theta);
-y = radius*sin(theta);
-z = z_max*k;
+% Velocity is just finite differences in the trajectory 
+pos = get_pos_des(t, t_f);
+timestep = 0.02; % to calculate velocity
+pos_prev = get_pos_des(t-timestep, t_f);
+vel = (pos-pos_prev) / timestep;
 
-pos = [x; y; z];
-vel = [0; 0; 0];
 acc = [0; 0; 0];
 yaw = 0;
 yawdot = 0;
