@@ -42,7 +42,7 @@ K_R = 10000*diag([2,2,1]); % Rotational error gain
 K_omega = 800*diag([2,2,1]); % Angular gain
 
 wn_pos = 5*[1;1;2.3];
-zeta_pos = 0.8*[1;1;1;];
+zeta_pos = [1;1;1;];
 K_p = diag(wn_pos.^2);
 K_d = diag(2.*zeta_pos.*wn_pos);
 
