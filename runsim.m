@@ -13,7 +13,7 @@ addpath('trajectories')
 % You need to implement trajhandle and controlhandle
 
 % trajectory generator
-trajhandle = @hover;
+trajhandle = @circle;
 
 % controller
 controlhandle = @controller;
