@@ -12,7 +12,7 @@ t_f = 12.5; % Final time
         radius = 5;
         z_max = 2.5;
         k = max(min(t_d/t_final,1),0); % length along path normalized
-        startup = 0.05;
+        startup = 0.1;
         if k<startup
             k = k*k/startup;
         end
