@@ -42,6 +42,10 @@ K_d = diag(7*[1,1,2]);
 
 Kp = 4000*[1,1.1,1];
 Kd = 250*[1,1.1,1];
+
+g = params.grav;
+m = params.mass;
+
 acc_d = qd{qn}.acc_des - K_d*(qd{qn}.vel - qd{qn}.vel_des) - K_p*(qd{qn}.pos - qd{qn}.pos_des);
 angles = qd{qn}.euler;
 
@@ -49,9 +53,9 @@ phi = angles(1);
 theta = angles(2);
 psi = angles(3);
 
+psi_d = qd{qn}.yaw_des;
 phi_d   = (acc_d(1)*sin(psi_d)-acc_d(2)*cos(psi_d))/g;
 theta_d = (acc_d(1)*cos(psi_d)+acc_d(2)*sin(psi_d))/g;
-psi_d = qd{qn}.yaw_des;
 
 p = qd{qn}.omega(1);
 q = qd{qn}.omega(2);
@@ -60,9 +64,6 @@ r = qd{qn}.omega(3);
 p_d = 0;
 q_d = 0;
 r_d = qd{qn}.yawdot_des;
-
-g = params.grav;
-m = params.mass;
 
 u_1 = (acc_d(3) + g)*m;
 u_2 = params.I*[-Kp(1)*(phi - phi_d) - Kd(1)*(p-p_d);
