@@ -7,14 +7,13 @@ function [desired_state] = circle(t, qn)
 %       position you return for t == 0
 
 t_f = 12.5; % Final time
-
+s = 0.1;
     function pos_des = get_pos_des(t_d, t_final)
         radius = 5;
         z_max = 2.5;
         k = max(min(t_d/t_final,1),-1); % length along path normalized
-        
-        if k > 0.95
-             k = 1-(1-k)^2/0.05;
+        if k > 1 - s
+             k = 1-(1-k)^2/s;
         end
         theta = 2*pi*k;
         x = radius*cos(theta);
@@ -32,8 +31,8 @@ vel = (pos-pos_prev) / timestep;
 
 
 k = max(min(t/t_f,1),-1); % length along path normalized
-if k>0.95
-   vel = vel .* (1 - (k - 0.95) / 0.05);
+if k > 1 - s
+   vel = vel .* (1 - (k - (1-s)) / s);
 end
 acc = [0; 0; 0];
 yaw = 0;
