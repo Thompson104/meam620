@@ -13,10 +13,10 @@ addpath('trajectories')
 % You need to implement trajhandle and controlhandle
 
 % trajectory generator
-trajhandle = @diamond;
+trajhandle = @circle;
 
 % controller
-controlhandle = @controller_geo;
+controlhandle = @controller;
 
 % Initial condition, you may want to modify these when tuning
 state_0  = trajhandle(0, 1); % Extract starting position from t=0 of traj

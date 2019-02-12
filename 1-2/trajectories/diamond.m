@@ -5,7 +5,7 @@ function [desired_state] = diamond(t, qn)
 % You have to set the pos, vel, acc, yaw and yawdot variables
 % NOTE: the simulator will spawn the robot to be at the
 %       position you return for t == 0
-t_f = 12; % Final time
+t_f = 10; % Final time
 
     function pos_des = get_pos_des(t_d, t_final)
         k = max(min(t_d/t_final,1),0); % length along path normalized
