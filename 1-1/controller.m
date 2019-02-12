@@ -9,14 +9,14 @@ function [F, M, trpy, drpy] = controller(qd, t, qn, params)
 %  qd{qn}.pos, qd{qn}.vel   position and velocity
 %  qd{qn}.euler = [roll;pitch;yaw]
 %  qd{qn}.omega     angular velocity in body frame
-%
+% 
 %  qd{qn}.pos_des, qd{qn}.vel_des, qd{qn}.acc_des  desired position, velocity, accel
 %  qd{qn}.yaw_des, qd{qn}.yawdot_des
 %
 % t: current time
-%
+%    
 % qn: quadrotor number, should always be 1
-%
+%    
 % params: various parameters
 %  params.I     moment of inertia
 %  params.grav  gravitational constant g (9.8...m/s^2)
@@ -34,69 +34,60 @@ function [F, M, trpy, drpy] = controller(qd, t, qn, params)
 %
 
 % =================== Your code goes here ===================
-
-% Geometric Controller
-% Gains
-
-K_R = 10000*diag([2,2,1]); % Rotational error gain
-K_omega = 800*diag([2,2,1]); % Angular gain
-
-wn_pos = 5*[1;1;2.3];
-zeta_pos = [1;1;1;];
-K_p = diag(wn_pos.^2);
-K_d = diag(2.*zeta_pos.*wn_pos);
-
-% Calculate u_1
-% Note the inconsistency, the qn.acc_des is target accel, but we are being
-% consistent so acc_des is acc_des, and qn.acc_des is target acc
-
-acc_d = qd{qn}.acc_des - K_d*(qd{qn}.vel - qd{qn}.vel_des) - K_p*(qd{qn}.pos - qd{qn}.pos_des);
-force_des = params.mass .* acc_d + [0 0 params.mass*params.grav]';
-rot_A2B = eulzxy2rotmat(qd{qn}.euler); % R
-b3 = rot_A2B * [0; 0; 1;];
-u_1 = b3' * force_des;
-
-% Calculate u_2
-
-b3_des = force_des / max(norm(force_des), 1e-5);
-
-psi_d = qd{qn}.yaw_des;
-
-a_phi = [cos(psi_d); sin(psi_d); 0];
-cross_b3des_aphi = cross(b3_des, a_phi);
-b2_des = cross_b3des_aphi / max(norm(cross_b3des_aphi), 1e-5);
-
-rot_des = [cross(b2_des,b3_des), b2_des, b3_des]; % R_des
-
-error_R_mat = 0.5*(rot_des'*rot_A2B - rot_A2B' * rot_des);
-error_R = [error_R_mat(3,2); error_R_mat(1,3); error_R_mat(2,1);];
-omega_des = [0,0,0]'; % No error, since desired omega is simply 0.
-error_omega = qd{qn}.omega - omega_des;
-
-u_2 = params.I*(-K_R*error_R - K_omega*error_omega);
+% ...
 % ==============================
 
 % Desired roll, pitch and yaw (in rad). In the simulator, those will be *ignored*.
 % When you are flying in the lab, they *will* be used (because the platform
 % has a built-in attitude controller). Best to fill them in already
 % during simulation.
+r = qd{qn}.pos;
+rdot = qd{qn}.vel;
+r_tar = qd{qn}.pos_des;
+rdot_tar = qd{qn}.vel_des;
+rddot_tar = qd{qn}.acc_des;
+zxy = qd{qn}.euler;
+omega = qd{qn}.omega;
+m = params.mass;
+g = params.grav;
 
-% TODO
-phi_des   = 0;
-theta_des = 0;
-psi_des   = 0;
+K_p = eye(3) * 20.0;
+K_d = eye(3) * 5.0;
+K_R = eye(3) * 1800.0;
+K_w = eye(3) * 50.0;
+
+rddot_des = rddot_tar - K_d*(rdot - rdot_tar) - K_p*(r - r_tar);
+
+psi_des   = qd{qn}.yaw_des;
+phi_des   = (rddot_des(1)*cos(psi_des) - rddot_des(2)*sin(psi_des))/(g*cos(2*psi_des));
+theta_des = (rddot_des(2)*cos(psi_des) - rddot_des(1)*sin(psi_des))/(g*cos(2*psi_des));
 
 %
 %
 %
-u = [u_1; u_2]; % control input u
+u    = zeros(4,1); % control input u, you should fill this in
 
+% Calculate F_des
+F_des = m*rddot_des + [0; 0; m*g];
+% Compute u1
+R = eulzxy2rotmat(zxy);
+u(1) = (R*[0; 0; 1])'*F_des;
+% Determine R_des
+b3_des = F_des/norm(F_des);
+a_psi = [cos(psi_des); sin(psi_des); 0];
+b2_des = cross(b3_des, a_psi)/norm(cross(b3_des, a_psi));
+R_des = [cross(b2_des, b3_des), b2_des, b3_des];
+% Find error orientation error vector
+e_R = veemap(R_des'*R - R'*R_des);
+e_R = 0.5*e_R';
+% Find u2
+u(2:4) = -params.I*(K_R*e_R + K_w*omega);
 
 % Thrust
 F    = u(1);       % This should be F = u(1) from the project handout
+
 % Moment
 M    = u(2:4);     % note: params.I has the moment of inertia
-
 
 % =================== Your code ends here ===================
 
@@ -116,7 +107,7 @@ function m = eulzxy2rotmat(ang)
     phi   = ang(1);
     theta = ang(2);
     psi   = ang(3);
-
+    
     m = [[cos(psi)*cos(theta) - sin(phi)*sin(psi)*sin(theta), -cos(phi)*sin(psi), ...
           cos(psi)*sin(theta) + cos(theta)*sin(phi)*sin(psi)];
          [cos(theta)*sin(psi) + cos(psi)*sin(phi)*sin(theta),  cos(phi)*cos(psi), ...

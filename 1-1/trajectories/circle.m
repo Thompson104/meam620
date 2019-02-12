@@ -6,37 +6,25 @@ function [desired_state] = circle(t, qn)
 % NOTE: the simulator will spawn the robot to be at the
 %       position you return for t == 0
 
-t_f = 12.7; % Final time
-s = 0.1;
-    function pos_des = get_pos_des(t_d, t_final)
-        radius = 5;
-        z_max = 2.5;
-        k = max(min(t_d/t_final,1),-1); % length along path normalized
-        if k > 1 - s
-             k = 1-(1-k)^2/s;
-        end
-        theta = 2*pi*k;
-        x = radius*cos(theta);
-        y = radius*sin(theta);
-        z = z_max*k;
-
-        pos_des = [x; y; z];
-    end
-
-% Velocity is just finite differences in the trajectory 
-pos = get_pos_des(t, t_f);
-timestep = 0.02; % to calculate velocity
-pos_prev = get_pos_des(t-timestep, t_f);
-vel = (pos-pos_prev) / timestep;
-
-
-k = max(min(t/t_f,1),-1); % length along path normalized
-if k > 1 - s
-   vel = vel .* (1 - (k - (1-s)) / s);
-end
+pos = [0; 0; 0];
+vel = [0; 0; 0];
 acc = [0; 0; 0];
 yaw = 0;
 yawdot = 0;
+
+if t <= 10
+    pos = [5*cos(0.2*pi*t); 5*sin(0.2*pi*t); 0.25*t];
+    vel = [-pi*sin(0.2*pi*t); pi*cos(0.2*pi*t); 0.25];
+    acc = [-0.2*pi^2*cos(0.2*pi*t); -0.2*pi^2*sin(0.2*pi*t); 0];
+    yaw = 0.2*pi*t;
+    yawdot = 0.2*pi;
+elseif t > 10
+    pos = [5; 0; 2.5];
+    vel = [0; 0; 0];
+    acc = [0; 0; 0];
+    yaw = 0;
+    yawdot = 0;
+end
 
 % =================== Your code ends here ===================
 
