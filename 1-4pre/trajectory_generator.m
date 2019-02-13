@@ -26,9 +26,9 @@ function [desired_state] = trajectory_generator(t, qn, varargin)
 
 desired_state = [];
 persistent trajectory_generator;
-t_f = 10; % Final time
+target_speed = 1.4; % Meters per second
 if isempty(varargin)
-  desired_state = eval_trajectory(trajectory_generator, t)
+  desired_state = eval_trajectory(trajectory_generator, t);
 else
   % we need to generate a trajectory
   map = varargin{1};
@@ -36,8 +36,9 @@ else
   trajectory_generator = generate_trajectory(map, path);
 end
 
-% returns a function that takes time t as an input and returns a positions
-% on the trajectory
+%% Trajectory Generation function
+% Returns a function that takes time t as an input and returns a position
+% on the trajectory.
 function trajectory_generator_ = generate_trajectory(map_, waypoints_)
   segment_vectors = waypoints_(2:end,:) - waypoints_(1:end-1,:);
   % the length of each segment
@@ -45,9 +46,12 @@ function trajectory_generator_ = generate_trajectory(map_, waypoints_)
   segment_lengths = sqrt(diag(segment_vectors*segment_vectors'));
   total_path_length = sum(segment_lengths);
   cumu_segment_lengths = [0; cumsum(segment_lengths)];
+  t_f = total_path_length/target_speed;
   trajectory_generator_ = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
 end
 
+%% Evaluate trajectory given trajectory function handle and time t
+% Assumes that time starts at 0, and finishes at a desiresd time.
 function desired_state_ = eval_trajectory(trajectory_generator_, t_)
   % Velocity is just finite differences in the trajectory
 

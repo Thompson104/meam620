@@ -89,6 +89,11 @@ phi_des   = psi_d;
 theta_des = theta_d;
 psi_des   = psi_d;
 
+drpy2pqr = [cos(theta), 0, -cos(phi)*sin(theta);
+            0, 1, sin(phi);
+            sin(theta), 0, cos(phi)*cos(theta)];
+
+derivative_rpy = inv(drpy2pqr)*[p_d; q_d; r_d];
 %
 %
 %
@@ -103,7 +108,7 @@ M    = u(2:4);     % note: params.I has the moment of inertia
 
 % Output trpy and drpy as in hardware
 trpy = [F, phi_des, theta_des, psi_des];
-drpy = [0, 0,       0,         0];
+drpy = [0, derivative_rpy']; % TODO: check that the first value is empty;
 
 end
 
