@@ -41,16 +41,48 @@ function [F, M, trpy, drpy] = controller(qd, t, qn, params)
 % When you are flying in the lab, they *will* be used (because the platform
 % has a built-in attitude controller). Best to fill them in already
 % during simulation.
+r = qd{qn}.pos;
+rdot = qd{qn}.vel;
+r_tar = qd{qn}.pos_des;
+rdot_tar = qd{qn}.vel_des;
+rddot_tar = qd{qn}.acc_des;
+zxy = qd{qn}.euler;
+omega = qd{qn}.omega;
+m = params.mass;
+g = params.grav;
 
-phi_des   = 0;
-theta_des = 0;
-psi_des   = 0;
+K_p = eye(3) * 150.0;
+K_d = eye(3) * 15.0;
+K_R = eye(3) * 1800.0;
+K_w = eye(3) * 50.0;
+
+rddot_des = rddot_tar - K_d*(rdot - rdot_tar) - K_p*(r - r_tar);
+
+psi_des   = qd{qn}.yaw_des;
+phi_des   = (rddot_des(1)*cos(psi_des) - rddot_des(2)*sin(psi_des))/(g*cos(2*psi_des));
+theta_des = (rddot_des(2)*cos(psi_des) - rddot_des(1)*sin(psi_des))/(g*cos(2*psi_des));
 
 %
 %
 %
 u    = zeros(4,1); % control input u, you should fill this in
-                  
+
+% Calculate F_des
+F_des = m*rddot_des + [0; 0; m*g];
+% Compute u1
+R = eulzxy2rotmat(zxy);
+u(1) = (R*[0; 0; 1])'*F_des;
+% Determine R_des
+b3_des = F_des/norm(F_des);
+a_psi = [cos(psi_des); sin(psi_des); 0];
+b2_des = cross(b3_des, a_psi)/norm(cross(b3_des, a_psi));
+R_des = [cross(b2_des, b3_des), b2_des, b3_des];
+% Find error orientation error vector
+e_R = veemap(R_des'*R - R'*R_des);
+e_R = 0.5*e_R';
+% Find u2
+u(2:4) = -params.I*(K_R*e_R + K_w*omega);
+
 % Thrust
 F    = u(1);       % This should be F = u(1) from the project handout
 
