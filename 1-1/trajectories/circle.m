@@ -6,35 +6,38 @@ function [desired_state] = circle(t, qn)
 % NOTE: the simulator will spawn the robot to be at the
 %       position you return for t == 0
 
-t_f = 12.7; % Final time
-s = 0.1;
-    function pos_des = get_pos_des(t_d, t_final)
-        radius = 5;
-        z_max = 2.5;
-        k = max(min(t_d/t_final,1),-1); % length along path normalized
-        if k > 1 - s
-             k = 1-(1-k)^2/s;
-        end
-        theta = 2*pi*k;
-        x = radius*cos(theta);
-        y = radius*sin(theta);
-        z = z_max*k;
+R=5;
+z_final=2.5;
+time2goal=11;
+dthetadt=2*pi/time2goal;
 
-        pos_des = [x; y; z];
-    end
-
-% Velocity is just finite differences in the trajectory 
-pos = get_pos_des(t, t_f);
-timestep = 0.02; % to calculate velocity
-pos_prev = get_pos_des(t-timestep, t_f);
-vel = (pos-pos_prev) / timestep;
-
-
-k = max(min(t/t_f,1),-1); % length along path normalized
-if k > 1 - s
-   vel = vel .* (1 - (k - (1-s)) / s);
+if t>time2goal
+%     theta=0;
+    x_des=R*cos(0);
+    y_des=R*sin(0);
+    z_des=z_final;
+    x_vel=0;
+    y_vel=0;
+    z_vel=0;
+    x_acc=0;
+    y_acc=0;
+    z_acc=0;
+else
+    theta=2*pi*t/time2goal;
+    x_des=R*cos(theta);
+    y_des=R*sin(theta);
+    z_des=z_final*t/time2goal;
+    x_vel=-R*dthetadt*sin(theta);
+    y_vel=R*dthetadt*cos(theta);
+    z_vel=z_final/time2goal; 
+    x_acc=-R*dthetadt^2*cos(theta);
+    y_acc=-R*dthetadt^2*sin(theta);
+    z_acc=0;
 end
-acc = [0; 0; 0];
+
+pos = [x_des; y_des; z_des];
+vel = [x_vel;y_vel; z_vel];
+acc = [x_acc;y_acc ; z_acc];
 yaw = 0;
 yawdot = 0;
 

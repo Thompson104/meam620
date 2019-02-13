@@ -34,8 +34,29 @@ function [F, M, trpy, drpy] = controller(qd, t, qn, params)
 %
 
 % =================== Your code goes here ===================
-% ...
-% ==============================
+Kp=30;
+Kd=2*sqrt(Kp);
+Kr=10000*[1,0,0;0,1,0;0,0,1];
+Kw=1000*[1,0,0;0,1,0;0,0,1];
+% phi=qd{qn}.euler(1);%roll
+% theta=qd{qn}.euler(2);%pitch
+% psi=qd{qn}.euler(3);%yaw
+R_meas = eulzxy2rotmat(qd{qn}.euler);
+F_des=params.mass*(qd{qn}.acc_des-Kd*(qd{qn}.vel-qd{qn}.vel_des)-Kp*(qd{qn}.pos-qd{qn}.pos_des))+[0;0;params.mass*params.grav];
+u1=transpose(R_meas*[0;0;1])*F_des;
+if F_des==0
+    b3_des=[0;0;0];
+else
+    b3_des=F_des/norm(F_des);
+end
+a_psi=[cos(qd{qn}.yaw_des);sin(qd{qn}.yaw_des);0];
+b2_des=cross(b3_des,a_psi)/norm(cross(b3_des,a_psi));
+R_des=[cross(b2_des,b3_des),b2_des,b3_des];
+er_matrix=(transpose(R_des)*R_meas-transpose(R_meas)*R_des)/2;
+er=veemap(er_matrix)';
+omega_des=0;
+ew=qd{qn}.omega-omega_des;
+u2=params.I*(-Kr*er-Kw*ew);
 
 % Desired roll, pitch and yaw (in rad). In the simulator, those will be *ignored*.
 % When you are flying in the lab, they *will* be used (because the platform
@@ -49,7 +70,7 @@ psi_des   = 0;
 %
 %
 %
-u    = zeros(4,1); % control input u, you should fill this in
+u    = [u1;u2]; % control input u, you should fill this in
                   
 % Thrust
 F    = u(1);       % This should be F = u(1) from the project handout

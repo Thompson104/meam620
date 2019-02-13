@@ -5,50 +5,43 @@ function [desired_state] = diamond(t, qn)
 % You have to set the pos, vel, acc, yaw and yawdot variables
 % NOTE: the simulator will spawn the robot to be at the
 %       position you return for t == 0
-t_f = 10; % Final time
+points=[0,0,0;1/4,sqrt(2),sqrt(2);1/2,0,2*sqrt(2);3/4,-sqrt(2),sqrt(2);1,0,0];
+time2goal=11;
+dthetadt=2*pi/time2goal;
+[numSteps,~]=size(points);
+numSteps=numSteps-1;
+timePerStep=time2goal/numSteps;
 
-    function pos_des = get_pos_des(t_d, t_final)
-        k = max(min(t_d/t_final,1),0); % length along path normalized
-        node_1 = [0;   0;       0;        ];
-        node_2 = [1/4; sqrt(2); sqrt(2);  ];
-        node_3 = [0.5; 0;       2*sqrt(2);];
-        node_4 = [3/4; -sqrt(2); sqrt(2)  ];
-        node_5 = [1;   0;        0        ];
-
-        nodes = [node_1, node_2, node_3, node_4, node_5];
-
-        ls = [norm(node_1 - node_2), norm(node_2 - node_3), norm(node_3 - node_4), norm(node_4 - node_5)];
-        total_length = sum(ls);
-
-        % TODO: redo, this is kinda ugly 
-        k_length = k*total_length;
-
-        pos_des = node_5;
-
-        if k_length < ls(1)
-            alpha = k_length/ls(1); % fraction along subpath
-            pos_des = alpha.*node_2 + (1-alpha).*node_1;
-        elseif k_length < ls(1)+ls(2)
-            alpha = (k_length - ls(1))/ls(2); % fraction along subpath
-            pos_des = alpha.*node_3 + (1-alpha).*node_2;
-        elseif k_length < ls(1)+ls(2)+ls(3)
-            alpha = (k_length - ls(1) - ls(2))/ls(3); % fraction along subpath
-            pos_des = alpha.*node_4 + (1-alpha).*node_3;
-        elseif k_length < ls(1)+ls(2)+ls(3)+ls(4)
-            alpha = (k_length - ls(1) - ls(2) - ls(3))/ls(4); % fraction along subpath
-            pos_des = alpha.*node_5 + (1-alpha).*node_4;
-        end
-
-
-    end
-% Velocity is just finite differences in the trajectory 
-
-pos = get_pos_des(t, t_f);
-timestep = 0.02; % to calculate velocity
-pos_prev = get_pos_des(t-timestep, t_f);
-vel = (pos-pos_prev) / timestep;
-
-acc = [0; 0; 0];
+if t>time2goal
+    x_des=points(end,1);
+    y_des=points(end,2);
+    z_des=points(end,3);
+    x_vel=0;
+    y_vel=0;
+    z_vel=0;
+    x_acc=0;
+    y_acc=0;
+    z_acc=0;
+else
+    index=ceil(t/timePerStep+1e-10);
+    nextIndex=index+1;
+    x_0=points(index,1);
+    y_0=points(index,2);
+    z_0=points(index,3);
+    t_0=(index-1)*timePerStep;
+    x_vel=(points(nextIndex,1)-points(index,1))/timePerStep;
+    y_vel=(points(nextIndex,2)-points(index,2))/timePerStep;
+    z_vel=(points(nextIndex,3)-points(index,3))/timePerStep; 
+    x_des=x_vel*(t-t_0)+x_0;
+    y_des=y_vel*(t-t_0)+y_0;
+    z_des=z_vel*(t-t_0)+z_0;
+    x_acc=0;
+    y_acc=0;
+    z_acc=0;
+end
+pos = [x_des; y_des; z_des];
+vel = [x_vel;y_vel; z_vel];
+acc = [x_acc;y_acc ; z_acc];
 yaw = 0;
 yawdot = 0;
 

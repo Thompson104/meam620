@@ -13,13 +13,16 @@ addpath('trajectories')
 % You need to implement trajhandle and controlhandle
 
 % trajectory generator
-trajhandle = @circle;
+% trajhandle = @hover;
+% trajhandle = @circle;
+trajhandle = @diamond;
 
 % controller
 controlhandle = @controller;
 
 % Initial condition, you may want to modify these when tuning
 state_0  = trajhandle(0, 1); % Extract starting position from t=0 of traj
+% state_0.pos = [0,0,0];
 R_0      = rotz(30);         % Set starting orientation
 x0{1}    = init_state(state_0.pos, R_0); % Initialize state
 
