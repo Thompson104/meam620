@@ -9,14 +9,14 @@ function [F, M, trpy, drpy] = controller(qd, t, qn, params)
 %  qd{qn}.pos, qd{qn}.vel   position and velocity
 %  qd{qn}.euler = [roll;pitch;yaw]
 %  qd{qn}.omega     angular velocity in body frame
-% 
+%
 %  qd{qn}.pos_des, qd{qn}.vel_des, qd{qn}.acc_des  desired position, velocity, accel
 %  qd{qn}.yaw_des, qd{qn}.yawdot_des
 %
 % t: current time
-%    
+%
 % qn: quadrotor number, should always be 1
-%    
+%
 % params: various parameters
 %  params.I     moment of inertia
 %  params.grav  gravitational constant g (9.8...m/s^2)
@@ -42,21 +42,63 @@ function [F, M, trpy, drpy] = controller(qd, t, qn, params)
 % has a built-in attitude controller). Best to fill them in already
 % during simulation.
 
-phi_des   = 0;
-theta_des = 0;
-psi_des   = 0;
+K_p = diag(12*[1,1,2]);
+K_d = diag(7*[1,1,2]);
+
+Kp = 4000*[1,1.1,1];
+Kd = 250*[1,1.1,1];
+
+g = params.grav;
+m = params.mass;
+
+acc_d = qd{qn}.acc_des - K_d*(qd{qn}.vel - qd{qn}.vel_des) - K_p*(qd{qn}.pos - qd{qn}.pos_des);
+angles = qd{qn}.euler;
+
+phi = angles(1);
+theta = angles(2);
+psi = angles(3);
+
+psi_d = qd{qn}.yaw_des;
+phi_d   = (acc_d(1)*sin(psi_d)-acc_d(2)*cos(psi_d))/g;
+theta_d = (acc_d(1)*cos(psi_d)+acc_d(2)*sin(psi_d))/g;
+
+p = qd{qn}.omega(1);
+q = qd{qn}.omega(2);
+r = qd{qn}.omega(3);
+
+p_d = 0;
+q_d = 0;
+r_d = qd{qn}.yawdot_des;
+
+u_1 = (acc_d(3) + g)*m;
+u_2 = params.I*[-Kp(1)*(phi - phi_d) - Kd(1)*(p-p_d);
+                -Kp(2)*(theta - theta_d) - Kd(2)*(q-q_d);
+                -Kp(3)*(psi - psi_d) - Kd(3)*(r-r_d);];
+
+%
+
+% ==============================
+
+% Desired roll, pitch and yaw (in rad). In the simulator, those will be *ignored*.
+% When you are flying in the lab, they *will* be used (because the platform
+% has a built-in attitude controller). Best to fill them in already
+% during simulation.
+
+
+phi_des   = psi_d;
+theta_des = theta_d;
+psi_des   = psi_d;
 
 %
 %
 %
-u    = zeros(4,1); % control input u, you should fill this in
-                  
+u = [u_1; u_2]; % control input u
+
+
 % Thrust
 F    = u(1);       % This should be F = u(1) from the project handout
-
 % Moment
 M    = u(2:4);     % note: params.I has the moment of inertia
-
 % =================== Your code ends here ===================
 
 % Output trpy and drpy as in hardware
@@ -75,7 +117,7 @@ function m = eulzxy2rotmat(ang)
     phi   = ang(1);
     theta = ang(2);
     psi   = ang(3);
-    
+
     m = [[cos(psi)*cos(theta) - sin(phi)*sin(psi)*sin(theta), -cos(phi)*sin(psi), ...
           cos(psi)*sin(theta) + cos(theta)*sin(phi)*sin(psi)];
          [cos(theta)*sin(psi) + cos(psi)*sin(phi)*sin(theta),  cos(phi)*cos(psi), ...
