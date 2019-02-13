@@ -1,4 +1,4 @@
-function [F, M, trpy, drpy] = controller(qd, t, qn, params)
+function [F, M, trpy, drpy] = controller_geo(qd, t, qn, params)
 % CONTROLLER quadrotor controller
 % The current states are:
 %% Inputs:
@@ -34,49 +34,50 @@ function [F, M, trpy, drpy] = controller(qd, t, qn, params)
 %
 
 % =================== Your code goes here ===================
-% ...
-% ==============================
 
-% Desired roll, pitch and yaw (in rad). In the simulator, those will be *ignored*.
-% When you are flying in the lab, they *will* be used (because the platform
-% has a built-in attitude controller). Best to fill them in already
-% during simulation.
+% Geometric Controller
+% Gains
 
-K_p = diag(12*[1,1,2]);
-K_d = diag(7*[1,1,2]);
+K_R = 10000*diag([2,2,1]); % Rotational error gain
+K_omega = 800*diag([2,2,1]); % Angular gain
 
-Kp = 4000*[1,1.1,1];
-Kd = 250*[1,1.1,1];
+wn_pos = 5*[1;1;2.3];
+zeta_pos = 0.8*[1;1;1;];
+K_p = diag(wn_pos.^2);
+K_d = diag(2.*zeta_pos.*wn_pos);
 
-g = params.grav;
-m = params.mass;
+% Calculate u_1
+% Note the inconsistency, the qn.acc_des is target accel, but we are being
+% consistent so acc_des is acc_des, and qn.acc_des is target acc
 
 acc_d = qd{qn}.acc_des - K_d*(qd{qn}.vel - qd{qn}.vel_des) - K_p*(qd{qn}.pos - qd{qn}.pos_des);
-angles = qd{qn}.euler;
+force_des = params.mass .* acc_d + [0 0 params.mass*params.grav]';
+rot_A2B = eulzxy2rotmat(qd{qn}.euler); % R
+b3 = rot_A2B * [0; 0; 1;];
+u_1 = b3' * force_des;
 
-phi = angles(1);
-theta = angles(2);
-psi = angles(3);
+% Calculate u_2
+
+b3_des = force_des / max(norm(force_des), 1e-5);
 
 psi_d = qd{qn}.yaw_des;
-phi_d   = (acc_d(1)*sin(psi_d)-acc_d(2)*cos(psi_d))/g;
-theta_d = (acc_d(1)*cos(psi_d)+acc_d(2)*sin(psi_d))/g;
 
-p = qd{qn}.omega(1);
-q = qd{qn}.omega(2);
-r = qd{qn}.omega(3);
+a_phi = [cos(psi_d); sin(psi_d); 0];
+cross_b3des_aphi = cross(b3_des, a_phi);
+b2_des = cross_b3des_aphi / max(norm(cross_b3des_aphi), 1e-5);
+
+rot_des = [cross(b2_des,b3_des), b2_des, b3_des]; % R_des
+
+error_R_mat = 0.5*(rot_des'*rot_A2B - rot_A2B' * rot_des);
+error_R = [error_R_mat(3,2); error_R_mat(1,3); error_R_mat(2,1);];
 
 p_d = 0;
 q_d = 0;
 r_d = qd{qn}.yawdot_des;
+omega_des = [p_d, q_d, r_d]'; % No error, since desired omega is simply 0.
+error_omega = qd{qn}.omega - omega_des;
 
-u_1 = (acc_d(3) + g)*m;
-u_2 = params.I*[-Kp(1)*(phi - phi_d) - Kd(1)*(p-p_d);
-                -Kp(2)*(theta - theta_d) - Kd(2)*(q-q_d);
-                -Kp(3)*(psi - psi_d) - Kd(3)*(r-r_d);];
-
-%
-
+u_2 = params.I*(-K_R*error_R - K_omega*error_omega);
 % ==============================
 
 % Desired roll, pitch and yaw (in rad). In the simulator, those will be *ignored*.
@@ -84,16 +85,23 @@ u_2 = params.I*[-Kp(1)*(phi - phi_d) - Kd(1)*(p-p_d);
 % has a built-in attitude controller). Best to fill them in already
 % during simulation.
 
-
-phi_des   = psi_d;
-theta_des = theta_d;
-psi_des   = psi_d;
+euler_des = rotmat2eulzxy(rot_des);
+phi_des   = euler_des(1);
+theta_des = euler_des(2);
+psi_des   = euler_des(3);
+% TODO: check this
+angles = qd{qn}.euler;
+phi = angles(1);
+theta = angles(2);
+psi = angles(3);
 
 drpy2pqr = [cos(theta), 0, -cos(phi)*sin(theta); ...
             0, 1, sin(phi); ...
             sin(theta), 0, cos(phi)*cos(theta)];
 
-derivative_rpy = inv(drpy2pqr)*[p_d; q_d; r_d];
+derivative_rpy = inv(drpy2pqr)*omega_des;
+
+
 %
 %
 %
@@ -104,6 +112,8 @@ u = [u_1; u_2]; % control input u
 F    = u(1);       % This should be F = u(1) from the project handout
 % Moment
 M    = u(2:4);     % note: params.I has the moment of inertia
+
+
 % =================== Your code ends here ===================
 
 % Output trpy and drpy as in hardware
