@@ -1,5 +1,4 @@
-map = load_map('sample_maps/no_obstacle_map.txt', 0.5, 0.5, 0.5);
-[path, num_expanded] = dijkstra(map, [1,1,1], [0,0,0], 0);
-disp('num expanded')
-disp(num_expanded)
+close all;
+map = load_map('sample_maps/map1.txt', 0.3, 0.3, 0.2);
+[path, num_expanded] = dijkstra(map, [5,6,6], [6,0,1], 0);
 plot_path(map, path);
