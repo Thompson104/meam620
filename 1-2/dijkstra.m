@@ -73,7 +73,7 @@ num_nodes = mapsize(1)*mapsize(2)*mapsize(3);
 distances = inf(1, num_nodes); % taxicab distance
 heuristic = zeros(1, num_nodes); % heuristic for astar
 visited = zeros(1, num_nodes); % 1 is visited, corresponds to index
-previous = inf(1, num_nodes);
+previous = -ones(1, num_nodes); % Previous index in the path for a given node
 distances(start_i) = 0;
 neighbor_delta = [eye(3); -eye(3); ~eye(3); -~eye(3);]; % precomputed
 
