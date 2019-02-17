@@ -18,21 +18,45 @@ function [path, num_expanded] = dijkstra(map, start, goal, astar)
 %   start   - 1x3 vector of the starting coordinates [x,y,z]
 %   goal:   - 1x3 vector of the goal coordinates [x,y,z]
 %   astar   - boolean use astar or dijkstra
-    function check = checkgrid(sub)
-      check = map.occgrid(sub(1), sub(2), sub(3));
-    end
+
+if nargin < 4
+    astar = false;
+end
+
+mapsize = size(map.occgrid);
+% fix mapsize
+if size(mapsize, 2) < 3
+    map.occgrid = zeros(pos2sub(map,map.bound_xyz(4:6)));
+end
+mapsize = [size(map.occgrid, 1), size(map.occgrid, 2), size(map.occgrid, 3)];
 
 bounds = map.bound_xyz;
 boundsvec = [bounds(1), bounds(4); bounds(2), bounds(5); bounds(3), bounds(6);];
 mapsize = size(map.occgrid);
 sub_bounds_vec = [pos2sub(map, boundsvec(:,1)), pos2sub(map, boundsvec(:,2))];
 
+res_x = map.res_xyz(1);
+res_y = map.res_xyz(2);
+res_z = map.res_xyz(3);
+
+lb_x = map.bound_xyz(1);
+lb_y = map.bound_xyz(2);
+lb_z = map.bound_xyz(3);
+
 start_i = pos2ind(map, start);
 goal_i = pos2ind(map, goal);
+
 start_sub = pos2sub(map, start);
 goal_sub = pos2sub(map, goal);
+
 path = zeros(0,3);
 num_expanded = 0;
+
+function check = checkgrid(sub)
+  check = map.occgrid(sub(1), sub(2), sub(3));
+end
+
+% Check whether the start/endpoints are valid
 is_not_in_bounds = any(goal<=boundsvec(:,1) & goal>=boundsvec(:,2) & start<=boundsvec(:,1) & start>=boundsvec(:,2));
 is_in_obstacle = any([checkgrid(start_sub); checkgrid(goal_sub)]); %
 if is_not_in_bounds
@@ -46,48 +70,62 @@ if is_in_obstacle
 end
 
 num_nodes = mapsize(1)*mapsize(2)*mapsize(3);
-distance = inf(1, num_nodes); % All distances start at infinity
-previous = -1*ones(1, num_nodes);
-Q = 1:num_nodes;
-distance(start_i) = 0; % distance to start is zero
-distance_in_Q = distance;
+distances = inf(1, num_nodes); % taxicab distance
+heuristic = zeros(1, num_nodes); % heuristic for astar
+visited = zeros(1, num_nodes); % 1 is visited, corresponds to index
+previous = inf(1, num_nodes);
+distances(start_i) = 0;
+neighbor_delta = [eye(3); -eye(3); ~eye(3); -~eye(3);]; % precomputed
 
-while Q
-  distances_in_Q = distance(Q);
-  [u_dist,k] = min(distances_in_Q);
-  u = Q(k);
-  Q(k) = [];
-  num_expanded = num_expanded+1;
-  [i,j,k] = ind2sub(size(map.occgrid), u);
-  u_sub = [i,j,k];
-  u_pos = ind2pos(map, u);
-  if checkgrid(u_sub)
-      continue
-      disp('should never see');
-  end
-  all_neighbors = repmat(u_sub,6,1) + [eye(3); -eye(3)];
+if astar
+    heuristic(start_i) = norm(start - goal);
+end
 
-  for n = 1:6
-    v_sub = all_neighbors(n,:);
+unvisited_distances = distances + heuristic;
 
-    % make sure it's a valid neighbor first
-    if any([v_sub >= mapsize, v_sub<1])
-      continue
-      disp('should never see');
-    elseif checkgrid(v_sub)
-      % this neighbor is occupied
-      continue
-      disp('should never see');
+while any(unvisited_distances < inf) && visited(goal_i) == 0
+    [~, u] = min(unvisited_distances);
+    unvisited_distances(u) = inf;
+    visited(u) = 1;
+    num_expanded = num_expanded+1;
+    [i,j,k] = ind2sub(size(map.occgrid), u);
+    u_pos = [lb_x + res_x*(j - 1), lb_y + res_y*(i - 1), lb_z + res_z*(k - 1)];
+
+    for z = 1:12
+        delta = neighbor_delta(z,:);
+        v_sub = [i,j,k] + delta;
+
+        if any([v_sub >= mapsize, v_sub<1])
+            % make sure on the map
+          continue
+        % elseif checkgrid(v_sub
+        elseif map.occgrid(v_sub(1), v_sub(2), v_sub(3))
+          % this neighbor is occupied
+          continue
+        end
+
+        v_pos = [u_pos(1) + delta(2)*res_x, u_pos(2) + delta(1)*res_y, u_pos(3) + delta(3)*res_z];
+        v_i = (v_sub(3) - 1)*mapsize(1)*mapsize(2) + (v_sub(2) - 1)*mapsize(1) + v_sub(1);
+
+        if visited(v_i)
+            continue
+        end
+        new_distance = distances(u) + norm(u_pos - v_pos);
+
+        if new_distance < distances(v_i)
+            distances(v_i) = new_distance;
+            previous(v_i) = u;
+            if astar
+                heuristic(v_i) = norm(v_pos - goal);
+            end
+            unvisited_distances(v_i) = distances(v_i) + heuristic(v_i);
+        end
     end
-    v_pos = sub2pos(map, v_sub);
-    v_i = pos2ind(map, v_pos);
-    new_distance = u_dist + norm(u_pos - v_pos);
-    if new_distance < distance(v_i)
-      distance(v_i) = new_distance;
-      % fprintf('Setting prev for %d to %d\n ', v_i, u);
-      previous(v_i) = u;
-    end
-  end
+end
+
+if visited(goal_i) == 0
+    disp('No path found. Problem infeasible');
+    return
 end
 
 path_i = [];
@@ -103,15 +141,5 @@ end
 path_i = [start_i, path_i];
 path = arrayfun(@(p) ind2pos(map, p)', path_i, 'Uniform', 0);
 path = cell2mat(path)';
-% gets neighbors which are in the map
-% perturbation_subs = [eye(3); -eye(3)];  % precomputed
-% function neighbors = get_neighbors(map, x_sub)
-%   all_neighbors_sub = repmat(x_sub,6,1) + perturbation_subs;
-%   % check to make sure in bounds
-%   valid_neighbors_sub = all_neighbors_sub(all_neighbors_sub>sub_bounds_vec(:,1)' & all_neighbors_sub<sub_bounds_vec(:,2)');
-%   % check to make sure not occupied
-%
-% end
 
-%% Check whether things are in bounds or in an obstacle
 end
