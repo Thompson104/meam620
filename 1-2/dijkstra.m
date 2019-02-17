@@ -81,8 +81,8 @@ heuristic = zeros(1, num_nodes); % heuristic for astar
 visited = zeros(1, num_nodes); % 1 is visited, corresponds to index
 previous = -ones(1, num_nodes); % Previous index in the path for a given node
 distances(start_i) = 0;
-neighbor_delta = [eye(3); -eye(3); ~eye(3); -~eye(3);]; % precomputed
-
+% neighbor_delta = [eye(3); -eye(3); ~eye(3); -~eye(3);]; % precomputed
+neighbor_delta = [eye(3); -eye(3);]
 if astar
     heuristic(start_i) = norm(start - goal);
 end
