@@ -23,11 +23,7 @@ if nargin < 4
     astar = false;
 end
 
-mapsize = size(map.occgrid);
-% fix mapsize
-if size(mapsize, 2) < 3
-    map.occgrid = zeros(pos2sub(map,map.bound_xyz(4:6)));
-end
+
 mapsize = [size(map.occgrid, 1), size(map.occgrid, 2), size(map.occgrid, 3)];
 
 path = zeros(0,3);
@@ -93,7 +89,7 @@ while any(unvisited_distances < inf) && visited(goal_i) == 0
         delta = neighbor_delta(z,:);
         v_sub = [i,j,k] + delta;
 
-        if any([v_sub >= mapsize, v_sub<1])
+        if any([v_sub > mapsize, v_sub<1])
             % make sure on the map
           continue
         % elseif checkgrid(v_sub
