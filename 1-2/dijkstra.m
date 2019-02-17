@@ -30,6 +30,14 @@ if size(mapsize, 2) < 3
 end
 mapsize = [size(map.occgrid, 1), size(map.occgrid, 2), size(map.occgrid, 3)];
 
+path = zeros(0,3);
+num_expanded = 0;
+
+if length(size(map.occgrid))~=3
+    % lower dimensional map?
+    return
+end
+
 bounds = map.bound_xyz;
 boundsvec = [bounds(1), bounds(4); bounds(2), bounds(5); bounds(3), bounds(6);];
 mapsize = size(map.occgrid);
@@ -49,8 +57,6 @@ goal_i = pos2ind(map, goal);
 start_sub = pos2sub(map, start);
 goal_sub = pos2sub(map, goal);
 
-path = zeros(0,3);
-num_expanded = 0;
 
 function check = checkgrid(sub)
   check = map.occgrid(sub(1), sub(2), sub(3));
