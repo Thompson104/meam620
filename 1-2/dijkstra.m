@@ -82,7 +82,7 @@ visited = zeros(1, num_nodes); % 1 is visited, corresponds to index
 previous = -ones(1, num_nodes); % Previous index in the path for a given node
 distances(start_i) = 0;
 % neighbor_delta = [eye(3); -eye(3); ~eye(3); -~eye(3);]; % precomputed
-neighbor_delta = [eye(3); -eye(3);]
+neighbor_delta = [eye(3); -eye(3);];
 if astar
     heuristic(start_i) = norm(start - goal);
 end
@@ -97,7 +97,7 @@ while any(unvisited_distances < inf) && visited(goal_i) == 0
     [i,j,k] = ind2sub(size(map.occgrid), u);
     u_pos = [lb_x + res_x*(j - 1), lb_y + res_y*(i - 1), lb_z + res_z*(k - 1)];
 
-    for z = 1:12
+    for z = 1:6
         delta = neighbor_delta(z,:);
         v_sub = [i,j,k] + delta;
 
