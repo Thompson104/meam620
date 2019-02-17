@@ -33,15 +33,8 @@ mapsize = [size(map.occgrid, 1), size(map.occgrid, 2), size(map.occgrid, 3)];
 path = zeros(0,3);
 num_expanded = 0;
 
-if length(size(map.occgrid))~=3
-    % lower dimensional map?
-    return
-end
-
 bounds = map.bound_xyz;
 boundsvec = [bounds(1), bounds(4); bounds(2), bounds(5); bounds(3), bounds(6);];
-mapsize = size(map.occgrid);
-sub_bounds_vec = [pos2sub(map, boundsvec(:,1)), pos2sub(map, boundsvec(:,2))];
 
 res_x = map.res_xyz(1);
 res_y = map.res_xyz(2);
@@ -82,7 +75,6 @@ visited = zeros(1, num_nodes); % 1 is visited, corresponds to index
 previous = -ones(1, num_nodes); % Previous index in the path for a given node
 distances(start_i) = 0;
 neighbor_delta = [eye(3); -eye(3); ~eye(3); -~eye(3);]; % precomputed
-%neighbor_delta = [eye(3); -eye(3);]
 if astar
     heuristic(start_i) = norm(start - goal);
 end
@@ -94,7 +86,7 @@ while any(unvisited_distances < inf) && visited(goal_i) == 0
     unvisited_distances(u) = inf;
     visited(u) = 1;
     num_expanded = num_expanded+1;
-    [i,j,k] = ind2sub(size(map.occgrid), u);
+    [i,j,k] = ind2sub(mapsize, u);
     u_pos = [lb_x + res_x*(j - 1), lb_y + res_y*(i - 1), lb_z + res_z*(k - 1)];
 
     for z = 1:12
