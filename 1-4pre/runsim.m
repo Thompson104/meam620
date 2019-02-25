@@ -19,7 +19,7 @@ addpath('utils')
 trajhandle = @trajectory_generator;
 
 % controller
-controlhandle = @controller;
+controlhandle = @controller_geo;
 
 % the list of test paths to fly
 all_test_paths = {

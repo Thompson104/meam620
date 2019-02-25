@@ -11,7 +11,6 @@ function plot_path(map, path)
 %   path - nx3 matrix where each row corresponds to the (x, y, z)
 %          coordinates of one point along the path
 
-figure;
 ax = gca;
 hold on;
 
@@ -48,7 +47,7 @@ ax.MinorGridLineStyle = '-';
 grid minor
 
 if nargin > 1
-  plot3(path(:,1), path(:,2), path(:,3), 'bo', 'LineWidth', 2, 'MarkerSize', 5);
+  plot3(path(:,1), path(:,2), path(:,3), 'k', 'LineWidth', 2);
   plot3(path(1,1), path(1,2), path(1,3), 'go', 'MarkerSize', 12, 'LineWidth', 2);
   plot3(path(end,1), path(end,2), path(end,3), 'mx', 'MarkerSize', 12, 'LineWidth', 2);
 end
