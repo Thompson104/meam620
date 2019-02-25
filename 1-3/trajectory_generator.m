@@ -23,13 +23,13 @@ function [ desired_state ] = trajectory_generator(t, qn, map, path)
 
 
 desired_state = [];
-persistent trajectory_generator;
+persistent traj;
 target_speed = 1.4; % Meters per second
-if isempty(map)
-  desired_state = eval_trajectory(trajectory_generator, t);
-else
+if isempty(t)
   % we need to generate a trajectory
-  trajectory_generator = generate_trajectory(map, path);
+  traj = generate_trajectory(map, path);
+else
+  desired_state = eval_trajectory(traj, t);
 end
 
 %% Trajectory Generation function
@@ -53,7 +53,7 @@ function desired_state_ = eval_trajectory(trajectory_generator_, t_)
 
   pos = trajectory_generator_(t_);
   timestep = 0.02; % to calculate velocity
-  pos_prev = trajectory_generator(t_-timestep);
+  pos_prev = trajectory_generator_(t_-timestep);
   vel = (pos-pos_prev) / timestep;
 
   acc = [0; 0; 0];
