@@ -5,6 +5,7 @@ addpath(genpath('./'));
 map = load_map('map1.txt', 0.5, 1.0, 0.25);
 start = {[0.0, -4.5, 0.5]};
 stop = {[8.0, 18.0, 3.0]};
+
 margin = 0.25;
 
 
@@ -30,7 +31,7 @@ for qn = 1:nquad
 end
 if nquad == 1
     %plot_path(map, path{1});
-    plot_path(map, trimmed_path);
+    %plot_path(map, trimmed_path);
 else
     % you could modify your plot_path to handle cell input for multiple robots
 end
@@ -49,6 +50,8 @@ function trimmed_path_xyz = trim_path(map, occijk_list, path_i, path_xyz)
     
     % list of distances for each point on path
     path_distances_to_obstacle = vecnorm(nearest_pos_on_path - path_xyz, 2,2);
+    figure
+    plot(path_distances_to_obstacle)
     
     trimmed_path_xyz = path_xyz(1,:,:);
     neighbor_prev = path_xyz(1,:,:);
