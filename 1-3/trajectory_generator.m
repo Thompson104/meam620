@@ -45,7 +45,12 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
   total_path_length = sum(segment_lengths);
   cumu_segment_lengths = [0; cumsum(segment_lengths)];
   t_f = total_path_length/target_speed;
-  trajectory_generator_ = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
+  %trajectory_generator_ = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
+  trajectory_generator_ = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
+  figure(6)
+  test_t = 0:0.1:t_f;
+  plot_path(map, trajectory_generator_(test_t))
+
 end
 
 %% Evaluate trajectory given trajectory function handle and time t
@@ -81,25 +86,38 @@ function trimmed_path_xyz = trim_path(map, path_xyz)
     nearest_pos_on_path = occxyz_list(nearest_row_list,:,:);
     % list of distances for each point on path
     path_distances_to_obstacle = vecnorm(nearest_pos_on_path - path_xyz, 2,2);
-    
+
     %figure(5)
     %plot(path_distances_to_obstacle)
-    
+
     trimmed_path_xyz = path_xyz(1,:,:);
     neighbor_prev = path_xyz(1,:,:);
-    dist_gain = 1.0;
+    dist_gain = 1.8;
 
     % we keep the start and end nodes
     for i = 2:length(path_distances_to_obstacle)-1
         dist_to_obs = path_distances_to_obstacle(i);
-        current_pos = path_xyz(i,:,:);
-        dist_prev_neighbor = norm(current_pos - neighbor_prev);
+        % trim based on hard distance to obstacle
+        % if greater than 0.7, trim, otherwise be careful
+        if dist_to_obs<2
+            current_pos = path_xyz(i,:,:);
+            dist_prev_neighbor = norm(current_pos - neighbor_prev);
+            % if it's far enough from the previous neighbor
+            if dist_to_obs*dist_gain < dist_prev_neighbor
+                trimmed_path_xyz = [trimmed_path_xyz; current_pos];
+                neighbor_prev = current_pos;
+            end
+        end
+
+        % Trim based on distance from obstacle scaled
+    %    dist_prev_neighbor = norm(current_pos - neighbor_prev);
 
         % if it's far enough from the previous neighbor
-        if dist_to_obs*dist_gain < dist_prev_neighbor
-            trimmed_path_xyz = [trimmed_path_xyz; current_pos];
-            neighbor_prev = current_pos;
-        end
+%        if dist_to_obs*dist_gain < dist_prev_neighbor
+%            trimmed_path_xyz = [trimmed_path_xyz; current_pos];
+%            neighbor_prev = current_pos;
+%        end
+%
     end
 
     trimmed_path_xyz = [trimmed_path_xyz; path_xyz(length(path_xyz),:,:)];
