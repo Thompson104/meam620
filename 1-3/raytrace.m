@@ -1,8 +1,6 @@
-function [ newpath ] = raytrace(map, path)
+function [ newpath ] = trim_path_raytrace(map, path, too_close_to_obs)
     sample_spacing = 0.1;
-    too_close_to_obs = 0.25;
-    size(path)
-    pl = length(path)
+    pl = length(path);
     occxyz_list = ind2pos(map,find(map.occgrid==1));
     newpath = zeros(pl, 3);
     newpath(1,:,:) = path(1,:,:);
