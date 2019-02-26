@@ -39,7 +39,8 @@ end
 % Returns a function that takes time t as an input and returns a position
 % on the trajectory.
 function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
-  waypoints_ = trim_path(map_, untrimmed_waypoints_);
+  % waypoints_ = trim_path(map_, untrimmed_waypoints_);
+  waypoints_ = raytrace(map_, untrimmed_waypoints_);
   segment_vectors = waypoints_(2:end,:) - waypoints_(1:end-1,:);
   % the length of each segment
   % this is row-wise norm
