@@ -24,7 +24,9 @@ function [ desired_state ] = trajectory_generator(t, qn, map, path)
 
 desired_state = [];
 persistent traj;
-target_speed = 1.4; % Meters per second
+target_speed = 2; % Meters per second
+dist_gain = 3.8;
+
 if isempty(t)
   % we need to generate a trajectory
   traj = generate_trajectory(map, path);
@@ -37,18 +39,22 @@ end
 % Returns a function that takes time t as an input and returns a position
 % on the trajectory.
 function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
-  waypoints_ = trim_path(map_, untrimmed_waypoints_)
+  waypoints_ = trim_path(map_, untrimmed_waypoints_);
   segment_vectors = waypoints_(2:end,:) - waypoints_(1:end-1,:);
   % the length of each segment
   % this is row-wise norm
   segment_lengths = sqrt(diag(segment_vectors*segment_vectors'));
   total_path_length = sum(segment_lengths);
   cumu_segment_lengths = [0; cumsum(segment_lengths)];
+
   t_f = total_path_length/target_speed;
   %trajectory_generator_ = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
   trajectory_generator_ = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
   figure(6)
   test_t = 0:0.1:t_f;
+  genpath = trajectory_generator_(test_t);
+  spline_length = sum(vecnorm(diff(genpath),2,2));
+  fprintf('Total path length %f, total spline length %f \n', [total_path_length, spline_length]);
   plot_path(map, trajectory_generator_(test_t))
 
 end
@@ -92,21 +98,18 @@ function trimmed_path_xyz = trim_path(map, path_xyz)
 
     trimmed_path_xyz = path_xyz(1,:,:);
     neighbor_prev = path_xyz(1,:,:);
-    dist_gain = 1.8;
 
     % we keep the start and end nodes
     for i = 2:length(path_distances_to_obstacle)-1
         dist_to_obs = path_distances_to_obstacle(i);
         % trim based on hard distance to obstacle
         % if greater than 0.7, trim, otherwise be careful
-        if dist_to_obs<2
-            current_pos = path_xyz(i,:,:);
-            dist_prev_neighbor = norm(current_pos - neighbor_prev);
-            % if it's far enough from the previous neighbor
-            if dist_to_obs*dist_gain < dist_prev_neighbor
-                trimmed_path_xyz = [trimmed_path_xyz; current_pos];
-                neighbor_prev = current_pos;
-            end
+        current_pos = path_xyz(i,:,:);
+        dist_prev_neighbor = norm(current_pos - neighbor_prev);
+        % if it's far enough from the previous neighbor
+        if dist_to_obs*dist_gain < dist_prev_neighbor
+            trimmed_path_xyz = [trimmed_path_xyz; current_pos];
+            neighbor_prev = current_pos;
         end
 
         % Trim based on distance from obstacle scaled
