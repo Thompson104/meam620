@@ -21,7 +21,7 @@ function [ finalpath ] = trim_path_raytrace(map, path, too_close_to_obs, dist_ga
         dist_to_obs = path_distances_to_obstacle(1);
         is_far_from_neighbor = dist_to_obs*dist_gain < dist; % metric for trimming
         is_too_close_to_obs = any(path_distances_to_obstacle<too_close_to_obs); % metric for ray tracing
-        if is_far_from_neighbor
+        if is_too_close_to_obs
             % too close, so keep the point
             new_path_size = new_path_size+1;
             newpath(new_path_size,:,:) = curr_point;
