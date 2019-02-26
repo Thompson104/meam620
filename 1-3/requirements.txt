@@ -1,0 +1,11 @@
+mymap.txt image	10	--	--
+map1 distance	9	28m	34m
+map1 time	9	12s	32s
+map2 distance	9	78m	83m
+map2 time	9	24s	34s
+map3 distance	9	40m	48m
+map3 time	9	20s	30s
+map4 distance	9	12m	16m
+map4 time	9	11s	25s
+map5 distance	9	36m	42m
+map5 time	9	24s	40s
