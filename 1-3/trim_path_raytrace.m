@@ -44,7 +44,8 @@ function [ finalpath ] = trim_path_raytrace(map, path, too_close_to_obs, dist_ga
        prev_point = newpath(i-1,:,:);
        curr_point = newpath(i,:,:);
        dist = max(1e-3,norm(curr_point - prev_point));
-       if dist>maxlength
+       %if dist>maxlength
+       if true
            % add an intermediary point
            % maybe we should do this for everything lol
            finalpath = [finalpath; 0.5*(curr_point+prev_point); curr_point];
@@ -53,6 +54,5 @@ function [ finalpath ] = trim_path_raytrace(map, path, too_close_to_obs, dist_ga
        end
   end
   length(finalpath)
-  finalpath = newpath;
 
 end
