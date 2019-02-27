@@ -26,7 +26,7 @@ desired_state = [];
 persistent traj;
 target_speed = 1.7; % Meters per second
 dist_gain = 3.8;
-too_close_to_obs = 0.3;
+too_close_to_obs = 0.2;
 
 if isempty(t)
   % we need to generate a trajectory
@@ -41,12 +41,25 @@ end
 % on the trajectory.
 function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
   %waypoints_ = trim_path(map_, untrimmed_waypoints_, dist_gain);
+%  flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_)
+%  flipped_trim1_waypoints_ = trim_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
+%
+%  % now we trim it the other way
+%  trim1_waypoints_ = flipud(flipped_trim1_waypoints_);
+%  sparse_waypoints_ = trim_path_raytrace(map_, trim1_waypoints_, too_close_to_obs, dist_gain);
+
   flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_)
-  flipped_trim1_waypoints_ = trim_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
+  flipped_keep1_waypoints_ = keep_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
 
   % now we trim it the other way
-  trim1_waypoints_ = flipud(flipped_trim1_waypoints_);
-  sparse_waypoints_ = trim_path_raytrace(map_, trim1_waypoints_, too_close_to_obs, dist_gain);
+  keep1_waypoints_ = flipud(flipped_keep1_waypoints_);
+  keep2_waypoints_ = keep_path_raytrace(map_, untrimmed_waypoints_, too_close_to_obs, dist_gain);
+
+  keep_waypoints = or(keep1_waypoints_, keep2_waypoints_);
+  % trim one more time
+  to_trim_waypoints = untrimmed_waypoints_(keep_waypoints,:,:);
+  sparse_waypoints_ = trim_path_raytrace(map_, to_trim_waypoints, too_close_to_obs+0.05, dist_gain);
+
   waypoints_ = add_intermediate_points(sparse_waypoints_);
 
   [cumu_segment_lengths, t_f, total_path_length] = process_waypoints(waypoints_);
@@ -72,7 +85,7 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
           % path length still too long, just go with straight
           trajectory_generator_ = trajectory_generator_straight;
       else
-          % path length good 
+          % path length good
           trajectory_generator_ = trajectory_generator_dense;
       end
   end
