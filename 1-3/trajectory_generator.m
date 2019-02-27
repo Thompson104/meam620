@@ -24,10 +24,11 @@ function [ desired_state ] = trajectory_generator(t, qn, map, path)
 
 desired_state = [];
 persistent traj;
-target_speed = 0.8; % Meters per second
+target_speed = 1.5; % Meters per second
 dist_gain = 3.8;
-too_close_to_obs = 0.2;
+too_close_to_obs = 0.3;
 use_mat_splines = true;
+flip_way = false;
 
 if isempty(t)
   % we need to generate a trajectory
@@ -45,30 +46,33 @@ end
 % Returns a function that takes time t as an input and returns a position
 % on the trajectory.
 function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
-  %waypoints_ = trim_path(map_, untrimmed_waypoints_, dist_gain);
-%  flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_)
-%  flipped_trim1_waypoints_ = trim_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
-%
-%  % now we trim it the other way
-%  trim1_waypoints_ = flipud(flipped_trim1_waypoints_);
-%  sparse_waypoints_ = trim_path_raytrace(map_, trim1_waypoints_, too_close_to_obs, dist_gain);
+    if flip_way 
+      flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_);
+      flipped_trim1_waypoints_ = trim_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
 
-  flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_);
-  flipped_keep1_waypoints_ = keep_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
+      % now we trim it the other way
+      trim1_waypoints_ = flipud(flipped_trim1_waypoints_);
+      sparse_waypoints_ = trim_path_raytrace(map_, trim1_waypoints_, too_close_to_obs, dist_gain);
+    else 
+      flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_);
+      flipped_keep1_waypoints_ = keep_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
 
-  % now we trim it the other way
-  keep1_waypoints_ = flipud(flipped_keep1_waypoints_);
-  keep2_waypoints_ = keep_path_raytrace(map_, untrimmed_waypoints_, too_close_to_obs, dist_gain);
+      % now we trim it the other way
+      keep1_waypoints_ = flipud(flipped_keep1_waypoints_);
+      keep2_waypoints_ = keep_path_raytrace(map_, untrimmed_waypoints_, too_close_to_obs, dist_gain);
 
-  keep_waypoints = or(keep1_waypoints_, keep2_waypoints_);
-  % trim one more time
-  to_trim_waypoints = untrimmed_waypoints_(keep_waypoints,:,:);
-  sparse_waypoints_ = trim_path_raytrace(map_, to_trim_waypoints, too_close_to_obs+0.05, dist_gain);
+      keep_waypoints = or(keep1_waypoints_, keep2_waypoints_);
+      % trim one more time
+      to_trim_waypoints = untrimmed_waypoints_(keep_waypoints,:,:);
+      sparse_waypoints_ = trim_path_raytrace(map_, to_trim_waypoints, too_close_to_obs+0.05, dist_gain);
+
+    end 
+
 
   waypoints_ = add_intermediate_points(sparse_waypoints_);
+  waypoints_ = add_intermediate_points(waypoints_);
+  [cumu_segment_lengths, t_f, total_path_length, slengths] = process_waypoints(waypoints_);
 
-  [cumu_segment_lengths, t_f, total_path_length] = process_waypoints(waypoints_);
-  
   trajectory_generator_straight = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
   trajectory_generator_spline = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
 
@@ -103,14 +107,14 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
   if ~use_mat_splines % using splines
       % use the min snap stuff
       %evenly sample waypoints
-      trajectory_generator_ = smooth_wp(waypoints_);
+      trajectory_generator_ = smooth_wp(waypoints_, slengths);
 
   end
 
 
 end
 
-function [cumu_seg_len, t_fin, total_path_length] = process_waypoints(wp)
+function [cumu_seg_len, t_fin, total_path_length, segment_lengths] = process_waypoints(wp)
     segment_vectors = wp(2:end,:) - wp(1:end-1,:);
     % the length of each segment
     % this is row-wise norm
@@ -141,12 +145,52 @@ function desired_state_ = eval_trajectory(trajectory_generator_, t_)
   desired_state_.yawdot = yawdot;
 end
 
-function trajparams = smooth_wp(waypoints)
-    % todo
+function trajparams = smooth_wp(waypoints, slengths)
+    trajparams.t0 = 0;
+    trajparams.AX = zeros(6,0);
+    trajparams.AY = zeros(6,0);
+    trajparams.AZ = zeros(6,0);
+    num_waypoints = length(waypoints)
+    trajparams.start = waypoints(1,:);
+    trajparams.goal = waypoints(num_waypoints,:);
+
+
+    tend = 0;
+
+    for j =1:num_waypoints-1
+        qstart = waypoints(j,:);
+        qend = waypoints(j+1,:);
+        tstart = tend;
+        tend = tstart+sqrt(norm(qend-qstart))/target_speed; % velocity continuity
+        %velocity + accel end positions are 0
+        Q = [tstart^7, tstart^6, tstart^5, tstart^4, tstart^3, tstart^2, tstart^1, 1;
+             tend^7, tend^6, tend^5, tend^4, tend^3, tend^2, tend^1, 1;
+            ]
+        A = Q\[qstart; qend;];
+
+        trajparams.AX= [trajparams.AX,A(:,1)];
+        trajparams.AY= [trajparams.AY,A(:,2)];
+        trajparams.AZ= [trajparams.AZ,A(:,3)];
+        trajparams.t0 = [trajparams.t0;tend];
+    end
 end
 
 function desired = eval_traj_smooth(trajparams, t)
-    % todo
+    l = size(trajparams.t0,1);
+    t = max(0, min(trajparams.t0(l), t));
+
+    k = max(1,length(find(trajparams.t0<t))); % is the minimum since we should index at least the first value
+    %for k = 1:l-1
+        %if t >= trajparams.t0(k) && t < trajparams.t0(k+1)
+    A = [trajparams.AX(:,k), trajparams.AY(:,k), trajparams.AZ(:,k)];
+    desired.pos = A'*[1; t; t^2; t^3; t^4; t^5; t^6; t^7];
+    desired.vel = A'*[0; 1; 2*t; 3*t^2; 4*t^3; 5*t^4; 6*t^5; 7*t^6;];
+    desired.acc = A'*[0; 0; 2; 6*t; 12*t^2; 20*t^3; 30*t^4; 42*t^5];
+    desired.yaw = 0;
+    desired.yawdot = 0;
+    %break
+       % end
+   % end
 end
 
 
