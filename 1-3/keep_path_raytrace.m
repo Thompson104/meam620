@@ -40,6 +40,6 @@ function [ keep_path ] = keep_path_raytrace(map, path, too_close_to_obs, dist_ga
        newpath(new_path_size,:,:) = path(pl,:,:);
    end
 
-   newpath = newpath(1:new_path_size,:,:)
+   newpath = newpath(1:new_path_size,:,:);
 
 end

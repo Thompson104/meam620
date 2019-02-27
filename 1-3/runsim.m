@@ -13,10 +13,14 @@ elseif false
     map = load_map('map2.txt', 0.2, 0.5, 0.25);
     start = {[0.2, 10, 2.0]};
     stop = {[5.0, 9.0, 3.0]};
-else
+elseif false
     map = load_map('map3.txt', 0.25, 0.5, 0.25);
     start = {[2.0, 2, 1.0]};
     stop = {[17.0, 0.0, 3.0]};
+else 
+    map = load_map('mymap.txt', 0.25, 0.25, 0.25);
+    start = {[0.0, 0.0, 0.0]};
+    stop = {[25.5, 5.0, 5.0]};
 end
 
 nquad = length(start);

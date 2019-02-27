@@ -24,15 +24,20 @@ function [ desired_state ] = trajectory_generator(t, qn, map, path)
 
 desired_state = [];
 persistent traj;
-target_speed = 1.7; % Meters per second
+target_speed = 0.8; % Meters per second
 dist_gain = 3.8;
 too_close_to_obs = 0.2;
+use_mat_splines = true;
 
 if isempty(t)
   % we need to generate a trajectory
   traj = generate_trajectory(map, path);
 else
-  desired_state = eval_trajectory(traj, t);
+    if use_mat_splines
+        desired_state = eval_trajectory(traj, t);
+    else
+        desired_state = eval_traj_smooth(traj, t);
+    end
 end
 
 
@@ -48,7 +53,7 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
 %  trim1_waypoints_ = flipud(flipped_trim1_waypoints_);
 %  sparse_waypoints_ = trim_path_raytrace(map_, trim1_waypoints_, too_close_to_obs, dist_gain);
 
-  flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_)
+  flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_);
   flipped_keep1_waypoints_ = keep_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
 
   % now we trim it the other way
@@ -63,6 +68,7 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
   waypoints_ = add_intermediate_points(sparse_waypoints_);
 
   [cumu_segment_lengths, t_f, total_path_length] = process_waypoints(waypoints_);
+  
   trajectory_generator_straight = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
   trajectory_generator_spline = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
 
@@ -90,13 +96,17 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
       end
   end
 
-
-
-
   % these can't be too far away, if they are they we have to add more waypoints and repeat
 
-  figure(6)
-  plot_path(map, trajectory_generator_(test_t))
+  % figure(6)
+  % plot_path(map, trajectory_generator_(test_t))
+  if ~use_mat_splines % using splines
+      % use the min snap stuff
+      %evenly sample waypoints
+      trajectory_generator_ = smooth_wp(waypoints_);
+
+  end
+
 
 end
 
@@ -130,5 +140,15 @@ function desired_state_ = eval_trajectory(trajectory_generator_, t_)
   desired_state_.yaw = yaw;
   desired_state_.yawdot = yawdot;
 end
+
+function trajparams = smooth_wp(waypoints)
+    % todo
+end
+
+function desired = eval_traj_smooth(trajparams, t)
+    % todo
+end
+
+
 
 end
