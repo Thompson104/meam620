@@ -1,4 +1,4 @@
-function [ finalpath ] = trim_path_raytrace(map, path, too_close_to_obs, dist_gain)
+function [ newpath ] = trim_path_raytrace(map, path, too_close_to_obs, dist_gain)
     sample_spacing = 0.1;
     pl = length(path);
     occxyz_list = ind2pos(map,find(map.occgrid==1));
@@ -36,23 +36,5 @@ function [ finalpath ] = trim_path_raytrace(map, path, too_close_to_obs, dist_ga
    end
 
    newpath = newpath(1:new_path_size,:,:)
-   new_path_size
-   % if any points are too far apart, we want to add an intermediary point
-
-   finalpath = newpath(1,:,:);
-   for i = 2:length(newpath)
-       prev_point = newpath(i-1,:,:);
-       curr_point = newpath(i,:,:);
-       dist = max(1e-3,norm(curr_point - prev_point));
-       %if dist>maxlength
-       if true
-           % add an intermediary point
-           % maybe we should do this for everything lol
-           finalpath = [finalpath; 0.5*(curr_point+prev_point); curr_point];
-       else
-           finalpath = [finalpath; curr_point];
-       end
-  end
-  length(finalpath)
 
 end

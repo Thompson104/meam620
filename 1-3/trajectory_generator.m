@@ -26,7 +26,7 @@ desired_state = [];
 persistent traj;
 target_speed = 1.7; % Meters per second
 dist_gain = 3.8;
-too_close_to_obs = 0.25;
+too_close_to_obs = 0.3;
 
 if isempty(t)
   % we need to generate a trajectory
@@ -41,24 +41,60 @@ end
 % on the trajectory.
 function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
   %waypoints_ = trim_path(map_, untrimmed_waypoints_, dist_gain);
-  waypoints_ = trim_path_raytrace(map_, untrimmed_waypoints_, too_close_to_obs, dist_gain);
-  segment_vectors = waypoints_(2:end,:) - waypoints_(1:end-1,:);
-  % the length of each segment
-  % this is row-wise norm
-  segment_lengths = sqrt(diag(segment_vectors*segment_vectors'));
-  total_path_length = sum(segment_lengths);
-  cumu_segment_lengths = [0; cumsum(segment_lengths)];
+  flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_)
+  flipped_trim1_waypoints_ = trim_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
 
-  t_f = total_path_length/target_speed;
-  %trajectory_generator_ = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
-  trajectory_generator_ = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
-  figure(6)
+  % now we trim it the other way
+  trim1_waypoints_ = flipud(flipped_trim1_waypoints_);
+  sparse_waypoints_ = trim_path_raytrace(map_, trim1_waypoints_, too_close_to_obs, dist_gain);
+  waypoints_ = add_intermediate_points(sparse_waypoints_);
+
+  [cumu_segment_lengths, t_f, total_path_length] = process_waypoints(waypoints_);
+  trajectory_generator_straight = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
+  trajectory_generator_spline = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
+
+  % test
   test_t = 0:0.1:t_f;
-  genpath = trajectory_generator_(test_t);
-  spline_length = sum(vecnorm(diff(genpath),2,2));
+  straight_traj = trajectory_generator_straight(test_t);
+  spline_traj = trajectory_generator_spline(test_t);
+  spline_length = sum(vecnorm(diff(spline_traj),2,2));
   fprintf('Total path length %f, total spline length %f \n', [total_path_length, spline_length]);
+  trajectory_generator_ = trajectory_generator_spline;
+  if (spline_length - total_path_length) / total_path_length > 0.2
+      % add more waypoints, path length too long
+      disp('spline not dense enough')
+      dense_waypoints_ = add_intermediate_points(waypoints_);
+      [cumu_segment_lengths, t_f, total_path_length] = process_waypoints(dense_waypoints_);
+      trajectory_generator_dense = @(t) interp1(cumu_segment_lengths, dense_waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
+      dense_spline_traj = trajectory_generator_dense(test_t);
+      dense_spline_length = sum(vecnorm(diff(dense_spline_traj),2,2));
+      if (dense_spline_length - total_path_length) / total_path_length > 0.2
+          % path length still too long, just go with straight
+          trajectory_generator_ = trajectory_generator_straight;
+      else
+          % path length good 
+          trajectory_generator_ = trajectory_generator_dense;
+      end
+  end
+
+
+
+
+  % these can't be too far away, if they are they we have to add more waypoints and repeat
+
+  figure(6)
   plot_path(map, trajectory_generator_(test_t))
 
+end
+
+function [cumu_seg_len, t_fin, total_path_length] = process_waypoints(wp)
+    segment_vectors = wp(2:end,:) - wp(1:end-1,:);
+    % the length of each segment
+    % this is row-wise norm
+    segment_lengths = sqrt(diag(segment_vectors*segment_vectors'));
+    total_path_length = sum(segment_lengths);
+    cumu_seg_len = [0; cumsum(segment_lengths)];
+    t_fin = total_path_length/target_speed;
 end
 
 %% Evaluate trajectory given trajectory function handle and time t
