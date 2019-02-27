@@ -26,9 +26,9 @@ desired_state = [];
 persistent traj;
 target_speed = 1.5; % Meters per second
 dist_gain = 3.8;
-too_close_to_obs = 0.3;
+too_close_to_obs = 0.2;
 use_mat_splines = true;
-flip_way = false;
+flip_way = false; % do not turn true 
 
 if isempty(t)
   % we need to generate a trajectory
@@ -70,11 +70,11 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
 
 
   waypoints_ = add_intermediate_points(sparse_waypoints_);
-  waypoints_ = add_intermediate_points(waypoints_);
+  %waypoints_ = add_intermediate_points(waypoints_);
   [cumu_segment_lengths, t_f, total_path_length, slengths] = process_waypoints(waypoints_);
 
   trajectory_generator_straight = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length);
-  trajectory_generator_spline = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
+  trajectory_generator_spline = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'makima');
 
   % test
   test_t = 0:0.1:t_f;
@@ -88,7 +88,7 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
       disp('spline not dense enough')
       dense_waypoints_ = add_intermediate_points(waypoints_);
       [cumu_segment_lengths, t_f, total_path_length] = process_waypoints(dense_waypoints_);
-      trajectory_generator_dense = @(t) interp1(cumu_segment_lengths, dense_waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'spline');
+      trajectory_generator_dense = @(t) interp1(cumu_segment_lengths, dense_waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'makima');
       dense_spline_traj = trajectory_generator_dense(test_t);
       dense_spline_length = sum(vecnorm(diff(dense_spline_traj),2,2));
       if (dense_spline_length - total_path_length) / total_path_length > 0.2
