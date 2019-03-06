@@ -4,6 +4,7 @@ function [ newpath ] = trim_path_raytrace(map, path, too_close_to_obs, dist_gain
     occxyz_list = ind2pos(map,find(map.occgrid==1));
     newpath = zeros(pl, 3);
     newpath(1,:,:) = path(1,:,:);
+    pprev_point = path(1,:,:);
     prev_point = path(1,:,:);
     new_path_size = 1;
     maxlength = 2; % max path length
@@ -18,15 +19,34 @@ function [ newpath ] = trim_path_raytrace(map, path, too_close_to_obs, dist_gain
         nearest_row_list = dsearchn(occxyz_list,sample_points);
         nearest_pos_on_path = occxyz_list(nearest_row_list,:,:);
         path_distances_to_obstacle = vecnorm(nearest_pos_on_path - sample_points, 2,2);
-        dist_to_obs = path_distances_to_obstacle(1);
-        is_far_from_neighbor = dist_to_obs*dist_gain < dist; % metric for trimming
+        %dist_to_obs = path_distances_to_obstacle(1);
+        %is_far_from_neighbor = dist_to_obs*dist_gain < dist; % metric for trimming
         is_too_close_to_obs = any(path_distances_to_obstacle<too_close_to_obs); % metric for ray tracing
         if is_too_close_to_obs
             % too close, so keep the point
             new_path_size = new_path_size+1;
             newpath(new_path_size,:,:) = curr_point;
+            pprev_point = prev_point;
             prev_point = curr_point;
+            
         end
+        
+        % check if corner
+        pdiff = prev_point - curr_point;
+        zdiff = pdiff(3);
+        xydiff = norm(pdiff(1:2));
+        prev_diff = pprev_point - prev_point;
+        prev_zdiff  = prev_diff(3);
+        prev_xydiff = norm(prev_diff(1:2));
+        mostly_down = zdiff > xydiff; % mostly down
+        mostly_straight = prev_zdiff > prev_xydiff;
+        is_not_too_close_to_neighbor = dist > too_close_to_obs;
+        if mostly_down && mostly_straight && is_not_too_close_to_neighbor % mostly down
+            new_path_size = new_path_size+1;
+            newpath(new_path_size,:,:) = curr_point;
+            pprev_point = prev_point;
+            prev_point = curr_point;
+        end 
         % otherwise we can skip this point
    end
 

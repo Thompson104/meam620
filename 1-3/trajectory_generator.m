@@ -24,7 +24,7 @@ function [ desired_state ] = trajectory_generator(t, qn, map, path)
 
 desired_state = [];
 persistent traj;
-target_speed = 2; % Meters per second
+target_speed = 1.5; % Meters per second
 z_speed_multiplier = 0.5;
 dist_gain = 3.8;
 too_close_to_obs = 0.2;
