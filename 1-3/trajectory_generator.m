@@ -24,11 +24,12 @@ function [ desired_state ] = trajectory_generator(t, qn, map, path)
 
 desired_state = [];
 persistent traj;
-target_speed = 1.5; % Meters per second
+target_speed = 2; % Meters per second
+z_speed_multiplier = 0.5;
 dist_gain = 3.8;
 too_close_to_obs = 0.2;
-use_mat_splines = true;
-flip_way = false; % do not turn true 
+use_mat_splines = false;
+flip_way = false; % do not turn true
 
 if isempty(t)
   % we need to generate a trajectory
@@ -46,14 +47,14 @@ end
 % Returns a function that takes time t as an input and returns a position
 % on the trajectory.
 function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
-    if flip_way 
+    if flip_way
       flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_);
       flipped_trim1_waypoints_ = trim_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
 
       % now we trim it the other way
       trim1_waypoints_ = flipud(flipped_trim1_waypoints_);
       sparse_waypoints_ = trim_path_raytrace(map_, trim1_waypoints_, too_close_to_obs, dist_gain);
-    else 
+    else
       flipped_untrimmed_waypoints_ = flipud(untrimmed_waypoints_);
       flipped_keep1_waypoints_ = keep_path_raytrace(map_, flipped_untrimmed_waypoints_, too_close_to_obs, dist_gain);
 
@@ -66,7 +67,7 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
       to_trim_waypoints = untrimmed_waypoints_(keep_waypoints,:,:);
       sparse_waypoints_ = trim_path_raytrace(map_, to_trim_waypoints, too_close_to_obs+0.05, dist_gain);
 
-    end 
+    end
 
 
   waypoints_ = add_intermediate_points(sparse_waypoints_);
@@ -77,37 +78,44 @@ function trajectory_generator_ = generate_trajectory(map_, untrimmed_waypoints_)
   trajectory_generator_spline = @(t) interp1(cumu_segment_lengths, waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'makima');
 
   % test
-  test_t = 0:0.1:t_f;
-  straight_traj = trajectory_generator_straight(test_t);
-  spline_traj = trajectory_generator_spline(test_t);
-  spline_length = sum(vecnorm(diff(spline_traj),2,2));
-  fprintf('Total path length %f, total spline length %f \n', [total_path_length, spline_length]);
-  trajectory_generator_ = trajectory_generator_spline;
-  if (spline_length - total_path_length) / total_path_length > 0.2
-      % add more waypoints, path length too long
-      disp('spline not dense enough')
-      dense_waypoints_ = add_intermediate_points(waypoints_);
-      [cumu_segment_lengths, t_f, total_path_length] = process_waypoints(dense_waypoints_);
-      trajectory_generator_dense = @(t) interp1(cumu_segment_lengths, dense_waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'makima');
-      dense_spline_traj = trajectory_generator_dense(test_t);
-      dense_spline_length = sum(vecnorm(diff(dense_spline_traj),2,2));
-      if (dense_spline_length - total_path_length) / total_path_length > 0.2
-          % path length still too long, just go with straight
-          trajectory_generator_ = trajectory_generator_straight;
-      else
-          % path length good
-          trajectory_generator_ = trajectory_generator_dense;
+  if use_mat_splines
+      test_t = 0:0.1:t_f;
+      straight_traj = trajectory_generator_straight(test_t);
+      spline_traj = trajectory_generator_spline(test_t);
+      spline_length = sum(vecnorm(diff(spline_traj),2,2));
+      fprintf('Total path length %f, total spline length %f \n', [total_path_length, spline_length]);
+      trajectory_generator_ = trajectory_generator_spline;
+      if (spline_length - total_path_length) / total_path_length > 0.2
+          % add more waypoints, path length too long
+          disp('spline not dense enough')
+          dense_waypoints_ = add_intermediate_points(waypoints_);
+          [cumu_segment_lengths, t_f, total_path_length] = process_waypoints(dense_waypoints_);
+          trajectory_generator_dense = @(t) interp1(cumu_segment_lengths, dense_waypoints_, max(min(t,t_f),0)/t_f*total_path_length, 'makima');
+          dense_spline_traj = trajectory_generator_dense(test_t);
+          dense_spline_length = sum(vecnorm(diff(dense_spline_traj),2,2));
+          if (dense_spline_length - total_path_length) / total_path_length > 0.2
+              % path length still too long, just go with straight
+              trajectory_generator_ = trajectory_generator_straight;
+          else
+              % path length good
+              trajectory_generator_ = trajectory_generator_dense;
+          end
       end
-  end
-
-  % these can't be too far away, if they are they we have to add more waypoints and repeat
-
-  % figure(6)
-  % plot_path(map, trajectory_generator_(test_t))
-  if ~use_mat_splines % using splines
+  else
       % use the min snap stuff
       %evenly sample waypoints
-      trajectory_generator_ = smooth_wp(waypoints_, slengths);
+      trajectory_generator_ = smooth_wp(waypoints_);
+      t_f = trajectory_generator_.t0(end);
+      test_t = 0:0.1:t_f;
+      dense_waypoints_ = add_intermediate_points(waypoints_);
+      trajectory_generator_ = smooth_wp(dense_waypoints_);
+      
+      for i=1:length(test_t)
+        d = eval_traj_smooth(trajectory_generator_, test_t(i));
+        ds(i,:) = d.pos;
+      end
+      spline_length = sum(vecnorm(diff(ds),2,2));
+      fprintf('Total path length %f, total min jerk length %f \n', [total_path_length, spline_length]); 
 
   end
 
@@ -145,52 +153,152 @@ function desired_state_ = eval_trajectory(trajectory_generator_, t_)
   desired_state_.yawdot = yawdot;
 end
 
-function trajparams = smooth_wp(waypoints, slengths)
-    trajparams.t0 = 0;
-    trajparams.AX = zeros(6,0);
-    trajparams.AY = zeros(6,0);
-    trajparams.AZ = zeros(6,0);
-    num_waypoints = length(waypoints)
+function trajparams = smooth_wp(waypoints)
+
+    num_waypoints = length(waypoints);
     trajparams.start = waypoints(1,:);
     trajparams.goal = waypoints(num_waypoints,:);
 
+    empt = zeros(1,length(trajparams.start));
+    tstart = 0;
+    qstart = waypoints(1,:);
+    qend = waypoints(2,:);
+    qdiff = qend - qstart;
+    zang = 1;
+    if qdiff(3)<0
+        qmin = 0.2;
+        qmax = 1;
+        dzdx = max(qmin, min(qmax, norm(qdiff(3)) /min(1e-3, norm(qdiff(1:2)))));
+        zang=z_speed_multiplier*dzdx/(qmax-qmin);
+    end
+    tend = tstart+norm(qend-qstart)/(target_speed*zang); % velocity continuity
+    xvec = [trajparams.start; empt; empt; ];
+    trajparams.t0 = tend;
 
-    tend = 0;
+    % we're just going to do continuous acceleration
+    Qtot = [];
+    Q1 = [1 0 0 0 0; 0 1 0 0 0; 0 0 2 0 0; ...
+         1 tend tend^2 tend^3 tend^4;...
+         0 0 0 0 0;...
+         0 1 2*tend,3*tend^2, 4*tend^3;...
+         0 0 2 6*tend 12*tend^2];
+    Qtot = [Qtot, Q1];
 
-    for j =1:num_waypoints-1
+
+    for j =2:num_waypoints-2
         qstart = waypoints(j,:);
         qend = waypoints(j+1,:);
+        xvec = [xvec; qstart; qstart; empt;empt ];
         tstart = tend;
-        tend = tstart+sqrt(norm(qend-qstart))/target_speed; % velocity continuity
-        %velocity + accel end positions are 0
-        Q = [tstart^7, tstart^6, tstart^5, tstart^4, tstart^3, tstart^2, tstart^1, 1;
-             tend^7, tend^6, tend^5, tend^4, tend^3, tend^2, tend^1, 1;
-            ]
-        A = Q\[qstart; qend;];
+        
+        qdiff = qend - qstart;
+        zang = 1;
+        if qdiff(3)<0
+            qmin = 0.2;
+            qmax = 1;
+            dzdx = max(qmin, min(qmax, norm(qdiff(3)) /min(1e-3, norm(qdiff(1:2)))));
+            zang=z_speed_multiplier*dzdx/(qmax-qmin);
+        end
+        tend = tstart+norm(qend-qstart)/(target_speed*zang); % velocity continuity
+        %tend = tstart+norm(qend-qstart)/target_speed; % velocity
 
-        trajparams.AX= [trajparams.AX,A(:,1)];
-        trajparams.AY= [trajparams.AY,A(:,2)];
-        trajparams.AZ= [trajparams.AZ,A(:,3)];
+        Q = [1 tstart tstart^2 tstart^3; ...
+         0 -1 -2*tstart  -3*tstart^2; ...
+         0 0 -2 -6*tstart; ...
+         1 tend tend^2 tend^3;...
+         0 0 0 0;...
+         0 1 2*tend,3*tend^2;...
+         0 0 2 6*tend];
+
+
+        ro = size(Q,1);
+        co = size(Q,2);
+        k = 4*(j-1)+1;
+        Qtot(k:k+ro-1,k+1:k+co) = Q;
+
         trajparams.t0 = [trajparams.t0;tend];
     end
+
+    % Do final step
+    j = j+1;
+    qstart = waypoints(j,:);
+    qend = waypoints(j+1,:);
+    xvec = [xvec; qstart; qstart; empt; empt];
+    tstart = tend;
+    
+    qdiff = qend - qstart;
+    zang = 1;
+
+    if qdiff(3)<0
+        qmin = 0.2;
+        qmax = 1;
+        dzdx = max(qmin, min(qmax, norm(qdiff(3)) /min(1e-3, norm(qdiff(1:2)))));
+        zang=z_speed_multiplier*dzdx/(qmax-qmin);
+    end
+    speed_end = 0.7*target_speed;
+    tend = tstart+norm(qend-qstart)/(speed_end*zang); % velocity continuity
+    %tend = tstart+norm(qend-qstart)/target_speed; % velocity continuity
+    trajparams.t0 = [trajparams.t0;tend];
+    Qf = [1 tstart tstart^2 tstart^3 tstart^4; ...
+     0 -1 -2*tstart  -3*tstart^2 -4*tstart^3; ...
+     0 0 -2 -6*tstart -12*tstart^2; ...
+     1 tend tend^2 tend^3 tend^4;...
+     0 1 2*tend,3*tend^2, 4*tend^3;...
+     0 0 2 6*tend 12*tend^2;];
+    k = 4*(j-1)+1;
+    Qtot(k:k+5,k+1:k+1+4) = Qf;
+    xvec = [xvec; trajparams.goal; empt; empt;];
+
+
+    trajparams.A = Qtot\xvec;
+
+    % Debugging
+    trajparams.Qtot = Qtot;
+    trajparams.xvec = xvec;
 end
 
 function desired = eval_traj_smooth(trajparams, t)
     l = size(trajparams.t0,1);
-    t = max(0, min(trajparams.t0(l), t));
+    t = max(0.0, min(trajparams.t0(end), t));
 
-    k = max(1,length(find(trajparams.t0<t))); % is the minimum since we should index at least the first value
-    %for k = 1:l-1
-        %if t >= trajparams.t0(k) && t < trajparams.t0(k+1)
-    A = [trajparams.AX(:,k), trajparams.AY(:,k), trajparams.AZ(:,k)];
-    desired.pos = A'*[1; t; t^2; t^3; t^4; t^5; t^6; t^7];
-    desired.vel = A'*[0; 1; 2*t; 3*t^2; 4*t^3; 5*t^4; 6*t^5; 7*t^6;];
-    desired.acc = A'*[0; 0; 2; 6*t; 12*t^2; 20*t^3; 30*t^4; 42*t^5];
+    k = min(l,length(find(trajparams.t0<t))+1); % is the minimum since we should index at least the first value
+
+    A = trajparams.A;
+    z = zeros(1,length(A));
+    pz = z;
+    vz = z;
+    az = z;
+
+    if k == 1
+        start_i = 1;
+        end_i = start_i+4;
+        pz(:,start_i:end_i) = [ 1, t, t^2, t^3, t^4, ];
+        vz(:,start_i:end_i) = [0, 1, 2*t, 3*t^2, 4*t^3,];
+        az(:,start_i:end_i) = [0, 0, 2, 6*t, 12*t*t, ];
+    elseif k == l
+        start_i = size(A,1)-4;
+        end_i = start_i+4;
+        pz(:,start_i:end_i) = [ 1, t, t^2, t^3, t^4, ];
+        vz(:,start_i:end_i) = [0, 1, 2*t, 3*t^2, 4*t^3, ];
+        az(:,start_i:end_i) = [0, 0, 2, 6*t, 12*t*t, ];
+    else
+        start_i = 6+(k-2)*4;
+        end_i = start_i+3;
+        pz(:,start_i:end_i) = [ 1, t, t^2, t^3, ];
+        vz(:,start_i:end_i) = [0, 1, 2*t, 3*t^2, ];
+        az(:,start_i:end_i) = [0, 0, 2, 6*t, ];
+    end
+
+    desired.pos = pz*A;
+    desired.vel = vz*A;
+    desired.acc = az*A;
+    desired.pos = desired.pos';
+    desired.vel = desired.vel';
+    desired.acc = desired.acc';
     desired.yaw = 0;
     desired.yawdot = 0;
-    %break
-       % end
-   % end
+    desired.k = k;
+    
 end
 
 

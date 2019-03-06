@@ -5,7 +5,7 @@ addpath(genpath('./'));
 
 %% Plan path
 disp('Planning ...');
-if false 
+if false  
     map = load_map('map1.txt', 0.1, 1.0, 0.25);
     start = {[0.0, -4.9, 0.2]};
     stop = {[8.0, 18.0, 3.0]};
@@ -18,7 +18,7 @@ elseif false
     start = {[2.0, 2, 1.0]};
     stop = {[17.0, 0.0, 3.0]};
 else 
-    map = load_map('mymap.txt', 0.25, 0.25, 0.25);
+    map = load_map('mymap.txt', 0.25, 0.25, 0.4);
     start = {[0.0, 0.0, 0.0]};
     stop = {[25.5, 5.0, 5.0]};
 end
@@ -28,7 +28,7 @@ for qn = 1:nquad
     path{qn} = dijkstra(map, start{qn}, stop{qn}, true);
 end
 if nquad == 1
-    plot_path(map, path{1});
+    %plot_path(map, path{1});
 else
     % you could modify your plot_path to handle cell input for multiple robots
 end

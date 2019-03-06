@@ -42,9 +42,11 @@ K_R = 10000*diag([2,2,1]); % Rotational error gain
 K_omega = 800*diag([2,2,1]); % Angular gain
 
 wn_pos = 5*[1;1;2.3];
-zeta_pos = [1;1;1;];
+zeta_pos = [1.3;1.3;1.3;];
 K_p = diag(wn_pos.^2);
 K_d = diag(2.*zeta_pos.*wn_pos);
+K_p = diag([7,7,7]);
+K_d = diag([5,5,3]);
 
 % Calculate u_1
 % Note the inconsistency, the qn.acc_des is target accel, but we are being
